@@ -1,12 +1,11 @@
 import json,os,urllib.request as U
 E=os.getenv("MAKEFUN_ENV_URL")
-def ps(p,b):
- return json.load(U.urlopen(U.Request(E+p,data=json.dumps(b).encode())))
+ps=lambda p,b:json.load(U.urlopen(U.Request(E+p,data=json.dumps(b).encode())))
 V=(0,100,320,330,500,900,0)
-P="kkkkkkkklmmiimmlljikkijlkkkookkkllmppmllmmoqqommuuuuuuuukkkkkkkk"
-N="aceeeecacgkkkkgcekmnnmkeelnoonleeknoonkeelmnnmlecgkllkgcaceeeeca"
-K="eccaacceeccaacceeccaacceeccaaccegeecceegiggggggiookkkkoooqmkkmqo"
-PS=("",P,N,N,"k"*64,N,K)
+P="kkkklmmiljikkkkollmpmmoquuuukkkk"
+N="aceecgkkekmnelnoeknoelmncgklacee"
+K="eccaeccaeccaeccageecigggookkoqmk"
+PS=("",P,N,N,"k"*32,N,K)
 SQ=[i for i in range(128)if not i&136]
 KN=(14,31,33,18,-14,-31,-33,-18)
 BD=(15,17,-15,-17)
@@ -15,7 +14,7 @@ KD=BD+RD
 CM=[15]*128
 CM[4]=12;CM[116]=3;CM[0]=13;CM[7]=14;CM[112]=7;CM[119]=11
 KG=[4,116]
-ND=0;NB=4e4;I=1000000
+ND=0;NB=4e4;I=1000000;KL=[0]*512
 def parse(f):
  global S,C,EP,B
  f=f.split();B=[0]*128;r=7;l=0
@@ -79,54 +78,56 @@ def gen(cp=0):
      if not cp:ap((sq,t,0))
      t+=d
  return ms
-def mk(m):
+def mu(m,u=0):
  global S,C,EP
- f,t,pr=m;p=B[f];c=B[t];cs=-1
+ f,t,pr=m
+ if u:
+  c,C,EP,cs=u;S=-S
+  B[f]=S if pr else B[t]
+  B[t]=0;B[cs if cs>=0 else t]=c
+  if abs(B[f])==6:
+   KG[(1-S)//2]=f;d=t-f
+   if abs(d)==2:r=f+(3 if d>0 else -4);B[r]=B[f+d//2];B[f+d//2]=0
+  return
+ p=B[f];c=B[t];cs=-1
  if EP==t and abs(p)<2 and not c:cs=t-16*S;c=B[cs];B[cs]=0
  u=(c,C,EP,cs)
  B[t]=pr*S if pr else p;B[f]=0
  EP=f+16*S if abs(p)<2 and abs(t-f)==32 else -1
  if abs(p)==6:
-  KG[(1-S)//2]=t
-  if t-f==2:B[f+1]=B[f+3];B[f+3]=0
-  if f-t==2:B[f-1]=B[f-4];B[f-4]=0
+  KG[(1-S)//2]=t;d=t-f
+  if abs(d)==2:r=f+(3 if d>0 else -4);B[f+d//2]=B[r];B[r]=0
  C&=CM[f]&CM[t]
  S=-S
  return u
-def un(m,u):
- global S,C,EP
- f,t,pr=m;c,C,EP,cs=u;S=-S
- B[f]=S if pr else B[t]
- B[t]=0;B[cs if cs>=0 else t]=c
- if abs(B[f])==6:
-  KG[(1-S)//2]=f
-  if t-f==2:B[f+3]=B[f+1];B[f+1]=0
-  if f-t==2:B[f-4]=B[f-1];B[f-1]=0
-def od(ms):
- return sorted(ms,key=lambda m:-(V[m[2]]if m[2]else abs(B[m[1]])*100-abs(B[m[0]])))
+def od(ms,y=0):
+ return sorted(ms,key=lambda m:-(V[m[2]]if m[2]else abs(B[m[1]])*100 or(50 if m==KL[y] else 0)))
 def sr(d,a,b,y):
  global ND
  ND+=1
  if ND>NB:raise Exception
  chk=att(KG[(1-S)//2],-S)
+ if chk and d>0:d+=1
  if d<1 and not chk:
   st=0
   for sq in SQ:
-   p=B[sq];r=sq>>4
-   if p:st+=(V[abs(p)]+(ord(PS[abs(p)][(r if p>0 else 7-r)*8+(sq&7)])-97)*5-50)*((p>0)*2-1)
+   p=B[sq];r=sq>>4;f=sq&7
+   if p:st+=(V[abs(p)]+(ord(PS[abs(p)][(r if p>0 else 7-r)*4+min(f,7-f)])-97)*5-50)*((p>0)*2-1)
   st*=S
   if st>=b:return b
   bs=max(a,st)
  else:bs=-I
  n=0
- for m in od(gen(d<1 and not chk)):
-  u=mk(m)
-  if att(KG[(1+S)//2],S):un(m,u);continue
+ for m in od(gen(d<1 and not chk),y):
+  u=mu(m)
+  if att(KG[(1+S)//2],S):mu(m,u);continue
   n+=1
   s=-sr(d-1,-b,-a,y+1)
-  un(m,u)
+  mu(m,u)
   bs=max(bs,s);a=max(a,s)
-  if a>=b:break
+  if a>=b:
+   if not B[m[1]]and not m[2]:KL[y]=m
+   break
  if not n and(d>0 or chk):return -100000+y if chk else 0
  return bs
 def best(fen):
@@ -136,10 +137,10 @@ def best(fen):
   ND=0;c=z;a=-I
   try:
    for m in od(gen()):
-    u=mk(m)
-    if att(KG[(1+S)//2],S):un(m,u);continue
+    u=mu(m)
+    if att(KG[(1+S)//2],S):mu(m,u);continue
     if z is None:z=m
-    s=-sr(d-1,-I,I,1);un(m,u)
+    s=-sr(d-1,-I,-a,1);mu(m,u)
     if s>a:a=s;c=m
   except:break
   z=c
